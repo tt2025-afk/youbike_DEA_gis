@@ -30,7 +30,6 @@
         }
         .legend i { width: 18px; height: 18px; float: left; margin-right: 8px; opacity: 0.7; }
         
-        /* 自訂標記圖示樣式 */
         .custom-div-icon { background: transparent; border: none; }
         .marker-pin {
             width: 30px; height: 30px; border-radius: 50% 50% 50% 0;
@@ -49,7 +48,6 @@
             color: #333; z-index: 10;
         }
         
-        /* 箭頭樣式 */
         .flow-arrow-up { color: #ef4444; font-weight: bold; }
         .flow-arrow-down { color: #10b981; font-weight: bold; }
     </style>
@@ -62,9 +60,7 @@
             <div class="bg-yellow-400 p-2 rounded-full"><i class="fas fa-bicycle text-white text-xl"></i></div>
             <div>
                 <h1 class="text-xl font-bold text-gray-800">YouBike 效率決策 GIS 系統</h1>
-                <p class="text-xs text-gray-500">
-                    基於 DEA 模型 (M=2, S=3)
-                </p>
+                <p class="text-xs text-gray-500">基於 DEA 模型 (M=2, S=3)</p>
             </div>
         </div>
         
@@ -82,7 +78,7 @@
         </div>
     </div>
 
-    <!-- Map Container -->
+    <!-- Map -->
     <div id="map"></div>
 
     <!-- Stats Panel -->
@@ -114,23 +110,13 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
     <script>
-        // --- 1. 初始化地圖 ---
-        // 鎖定視野在大安區
-        const map = L.map('map', {
-            center: [25.0330, 121.5430],
-            zoom: 14,
-            minZoom: 13,
-            maxZoom: 18
-        });
-
-        // 使用亮色底圖
+        const map = L.map('map', { center: [25.0330, 121.5430], zoom: 14, minZoom: 13, maxZoom: 18 });
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
             subdomains: 'abcd',
             maxZoom: 19
         }).addTo(map);
 
-        // --- 3. 建立圖例 ---
         const legend = L.control({position: 'bottomright'});
         legend.onAdd = function (map) {
             const div = L.DomUtil.create('div', 'legend');
@@ -145,24 +131,16 @@
         };
         legend.addTo(map);
 
-        // 全域變數
         let allMarkers = [];
         let currentData = [];
 
-        // 模擬數據 (當作備案)
+        // 模擬數據
         const sampleData = [
-            { DMU: "忠孝復興站(A)", Lat: 25.0425, Lng: 121.5435, E: 1.000, Slack_X1: 0, NF: 500, Decision: "【優先擴張】" },
-            { DMU: "大安森林公園(D)", Lat: 25.0347, Lng: 121.5369, E: 1.000, Slack_X1: 0, NF: 500, Decision: "【優先擴張】" },
-            { DMU: "純住宅巷口(E)", Lat: 25.0298, Lng: 121.5492, E: 0.45, Slack_X1: 8.5, NF: -100, Decision: "【整併或遷移】" },
-            { DMU: "科技大樓站(F)", Lat: 25.0267, Lng: 121.5430, E: 0.98, Slack_X1: 0.5, NF: 100, Decision: "維持現狀" },
-            { DMU: "師大附中(G)", Lat: 25.0306, Lng: 121.5305, E: 0.75, Slack_X1: 2.0, NF: 100, Decision: "【縮減車位】" },
-            { DMU: "敦化南路口(H)", Lat: 25.0280, Lng: 121.5498, E: 0.60, Slack_X1: 5.0, NF: -200, Decision: "【縮減車位】" }
+            { DMU: "忠孝復興站(A)", Lat: 25.0425, Lng: 121.5435, E: 1.000, Slack_Docks: 0, Slack_Pop: 0, NF: 500, Decision: "【優先擴張】" },
+            { DMU: "純住宅巷口(E)", Lat: 25.0298, Lng: 121.5492, E: 0.45, Slack_Docks: 8.5, Slack_Pop: 1200, NF: -100, Decision: "【整併或遷移】" },
         ];
 
-        function getColor(e_score) {
-            return e_score >= 0.999 ? '#10b981' : e_score >= 0.8 ? '#f59e0b' : '#ef4444';
-        }
-
+        function getColor(e_score) { return e_score >= 0.999 ? '#10b981' : e_score >= 0.8 ? '#f59e0b' : '#ef4444'; }
         function getIcon(net_flow, e_score) {
             if (e_score < 0.8) return 'fa-exclamation';
             if (net_flow > 400) return 'fa-arrow-up';
@@ -173,19 +151,17 @@
         function renderMap(data) {
             allMarkers.forEach(m => map.removeLayer(m));
             allMarkers = [];
-
-            let totalE = 0;
-            let countLow = 0, countExpand = 0, countReduce = 0, countOptimize = 0;
-            let validCount = 0;
+            let totalE = 0, countLow = 0, countExpand = 0, countReduce = 0, countOptimize = 0, validCount = 0;
 
             data.forEach(row => {
                 const lat = parseFloat(row.Lat || row.Latitude);
                 const lng = parseFloat(row.Lng || row.Longitude);
-
                 if (isNaN(lat) || isNaN(lng)) return;
 
                 const e = parseFloat(row.E || row.DEA_E_Score || 0);
-                const slack = parseFloat(row.Slack_X1 || row.Slack_Docks || 0);
+                // 注意這裡的 Slack 欄位名稱要對應 Python 輸出的 header
+                const slackDocks = parseFloat(row.Slack_X1 || row.Slack_Docks || 0);
+                const slackPop = parseFloat(row.Slack_X2 || row.Slack_Pop || 0);
                 const nf = parseFloat(row.NF || row.NetFlow || 0);
                 const decision = row.Decision || row.spatial_decision || row['空間決策'] || "無";
 
@@ -199,29 +175,33 @@
 
                 const color = getColor(e);
                 const iconClass = getIcon(nf, e);
-                
                 const iconHtml = `
                     <div style="background-color: ${color}" class="marker-pin"></div>
                     <i class="fas ${iconClass} marker-icon" style="color: ${nf > 0 && iconClass.includes('arrow') ? '#dc2626' : (nf < 0 && iconClass.includes('arrow') ? '#16a34a' : '#333')}"></i>
                 `;
-
-                const icon = L.divIcon({
-                    className: 'custom-div-icon',
-                    html: iconHtml,
-                    iconSize: [30, 42],
-                    iconAnchor: [15, 42],
-                    popupAnchor: [0, -40]
-                });
-
+                const icon = L.divIcon({ className: 'custom-div-icon', html: iconHtml, iconSize: [30, 42], iconAnchor: [15, 42], popupAnchor: [0, -40] });
                 const marker = L.marker([lat, lng], {icon: icon});
 
+                // 修改這段：新增顯示 Slack_Pop (人口過剩)
                 const popupContent = `
-                    <div class="p-1 min-w-[200px]">
-                        <h3 class="font-bold text-lg text-gray-800 border-b pb-1 mb-2">${row.DMU || row.DMU_Name || "站點"}</h3>
+                    <div class="p-1 min-w-[220px]">
+                        <h3 class="font-bold text-lg text-gray-800 border-b pb-1 mb-2">${row.DMU || row.DMU_Name}</h3>
                         <div class="space-y-1 text-sm">
                             <div class="flex justify-between"><span class="text-gray-500">效率值 (E):</span><span class="font-bold" style="color:${color}">${e.toFixed(3)}</span></div>
-                            <div class="flex justify-between"><span class="text-gray-500">投入過剩:</span><span class="font-bold text-red-500">${slack > 0 ? slack.toFixed(1) : '-'}</span></div>
-                            <div class="flex justify-between"><span class="text-gray-500">淨流量:</span><span class="font-bold ${nf > 0 ? 'text-red-500' : 'text-green-500'}">${nf > 0 ? '+' + nf : nf}</span></div>
+                            
+                            <!-- 新增車位過剩顯示 -->
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">車位過剩:</span>
+                                <span class="font-bold text-red-500">${slackDocks > 0.5 ? slackDocks.toFixed(1) + ' 柱' : '-'}</span>
+                            </div>
+                            
+                            <!-- 新增人口過剩顯示 -->
+                            <div class="flex justify-between" title="位於高密度區卻低產出">
+                                <span class="text-gray-500">人口紅利浪費:</span>
+                                <span class="font-bold text-orange-500">${slackPop > 100 ? Math.round(slackPop) : '-'}</span>
+                            </div>
+
+                            <div class="flex justify-between"><span class="text-gray-500">淨流量 (NF):</span><span class="font-bold ${nf > 0 ? 'text-red-500' : 'text-green-500'}">${nf > 0 ? '+' + nf : nf}</span></div>
                             <div class="mt-3 pt-2 border-t bg-gray-50 p-2 rounded">
                                 <span class="block text-xs font-semibold text-gray-500 mb-1">GIS 決策建議:</span>
                                 <span class="block font-bold text-indigo-700 text-sm">${decision}</span>
@@ -244,7 +224,7 @@
             document.getElementById('optimizeCount').innerText = countOptimize + " 站";
         }
 
-        // CSV 解析 (含 BOM 處理)
+        // CSV 解析
         function parseCSV(text) {
             if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
             const lines = text.split('\n');
@@ -286,7 +266,6 @@
             });
             document.getElementById('btn-' + type).classList.add('bg-white', 'shadow-sm', 'font-medium', 'text-gray-700');
             document.getElementById('btn-' + type).classList.remove('text-gray-600');
-
             allMarkers.forEach(marker => {
                 const e = marker.data.e;
                 if (type === 'all') map.addLayer(marker);
@@ -295,9 +274,7 @@
             });
         }
 
-        // 預設載入模擬數據
         renderMap(sampleData);
-
     </script>
 </body>
 </html>
