@@ -15,11 +15,18 @@
     <style>
         body { margin: 0; padding: 0; display: flex; flex-direction: column; height: 100vh; background-color: #f8fafc; font-family: 'Microsoft JhengHei', 'Segoe UI', sans-serif; }
         
-        /* 佈局 */
-        #header { height: 70px; z-index: 50; }
-        #main-container { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; }
-        #map-container { flex: 5; position: relative; min-height: 400px; }
-        #list-container { flex: 4; background: white; display: flex; flex-direction: column; border-top: 4px solid #94a3b8; }
+        /* 佈局設定 (核心修改處) */
+        #header { height: 60px; z-index: 50; flex-shrink: 0; }
+        
+        /* 主容器改為橫向排列 (Row) */
+        #main-container { flex-grow: 1; display: flex; flex-direction: row; overflow: hidden; }
+        
+        /* 地圖佔 70% */
+        #map-container { flex: 7; position: relative; height: 100%; }
+        
+        /* 列表佔 30%，並加上左邊框 */
+        #list-container { flex: 3; background: white; display: flex; flex-direction: column; border-left: 1px solid #cbd5e1; height: 100%; min-width: 400px; }
+        
         #map { height: 100%; width: 100%; }
 
         /* 自訂標記樣式 */
@@ -51,6 +58,9 @@
         /* 列表樣式 */
         .station-row:hover { background-color: #f0f9ff; cursor: pointer; border-left: 4px solid #0ea5e9; }
         .station-row.active { background-color: #e0f2fe; border-left: 4px solid #0284c7; font-weight: bold; }
+        
+        /* 表格內文字縮小一點以適應側邊欄 */
+        td, th { font-size: 0.8rem; padding: 8px 6px; }
         
         /* 按鈕樣式 */
         .mode-btn { opacity: 0.6; transition: all 0.2s; border: 1px solid transparent; }
@@ -108,11 +118,11 @@
 
     <div id="main-container">
         
-        <!-- 地圖區 -->
+        <!-- 左側：地圖區 -->
         <div id="map-container">
             <div id="map"></div>
             
-            <!-- 浮動控制面板 -->
+            <!-- 浮動控制面板 (置於地圖右上角) -->
             <div class="absolute top-4 right-4 z-[400] flex flex-col items-end space-y-3 pointer-events-none">
                 
                 <!-- 1. 效率分析子篩選 -->
@@ -185,32 +195,31 @@
             </div>
         </div>
 
-        <!-- 列表區 -->
+        <!-- 右側：列表區 -->
         <div id="list-container">
-            <div class="px-4 py-2 border-b bg-gray-50 flex justify-between items-center shadow-sm z-10 h-10">
+            <div class="px-4 py-3 border-b bg-gray-50 flex justify-between items-center shadow-sm z-10">
                 <div class="flex items-center">
                     <h3 class="font-bold text-slate-800 mr-3 text-sm" id="list-title">資源分配建議列表</h3>
                     <span class="bg-slate-200 text-slate-600 text-xs px-2 py-0.5 rounded-full font-bold" id="list-count">0</span>
                 </div>
-                <div class="text-xs text-slate-500 font-medium bg-yellow-50 px-2 py-1 rounded border border-yellow-200 text-yellow-700">
+                <div class="text-xs text-slate-500 font-medium bg-yellow-50 px-2 py-1 rounded border border-yellow-200 text-yellow-700 truncate max-w-[150px]" title="排序說明">
                     <i class="fas fa-sort-amount-down-alt mr-1"></i> <span id="sort-desc">依效率值 (低→高) 排序</span>
                 </div>
             </div>
 
-            <div class="flex-grow overflow-auto relative">
+            <div class="flex-grow overflow-auto relative custom-scroll">
                 <table class="w-full text-left border-collapse">
                     <thead class="bg-white sticky top-0 z-10 text-[11px] text-slate-500 uppercase tracking-wider font-bold border-b">
                         <tr>
-                            <th class="px-4 py-2 w-10 text-center">燈號</th>
-                            <th class="px-4 py-2">站點名稱</th>
-                            <th class="px-4 py-2 w-20 text-center">效率值</th>
-                            <th class="px-4 py-2 w-24 text-center">建議減少車輛<br>(Slack)</th>
-                            <th class="px-4 py-2 w-24 text-center">淨流量</th>
-                            <th class="px-4 py-2 w-1/3" id="col-action">建議行動</th>
-                            <th class="px-4 py-2 w-16 text-right">定位</th>
+                            <th class="px-3 py-2 w-8 text-center">燈</th>
+                            <th class="px-3 py-2">站點</th>
+                            <th class="px-3 py-2 w-16 text-center">E值</th>
+                            <th class="px-3 py-2 w-16 text-center">流量</th>
+                            <th class="px-3 py-2" id="col-action">建議</th>
+                            <th class="px-3 py-2 w-10 text-right"></th>
                         </tr>
                     </thead>
-                    <tbody id="table-body" class="text-sm text-slate-700">
+                    <tbody id="table-body" class="text-xs text-slate-700">
                         <!-- JS 填充 -->
                     </tbody>
                 </table>
@@ -268,18 +277,18 @@
 
             if (mode === 'efficiency') {
                 effFilters.classList.remove('hidden');
-                listTitle.innerText = '站點效率分析列表';
-                colAction.innerText = '效率等級說明';
+                listTitle.innerText = '站點效率分析';
+                colAction.innerText = '等級';
                 setSubFilter('eff_all'); 
             } else if (mode === 'dispatch') {
                 dispatchFilters.classList.remove('hidden');
-                listTitle.innerText = '營運調度建議列表';
-                colAction.innerText = '調度策略';
+                listTitle.innerText = '營運調度列表';
+                colAction.innerText = '策略';
                 setSubFilter('supply'); 
             } else {
                 resourceFilters.classList.remove('hidden');
-                listTitle.innerText = '資源分配與規模調整列表';
-                colAction.innerText = '規模建議';
+                listTitle.innerText = '資源分配列表';
+                colAction.innerText = '規模';
                 setSubFilter('all_resource'); 
             }
         }
@@ -514,14 +523,12 @@
                 else if (level.includes('中') || (e >= 0.5 && e < 0.8)) { colorClass = 'bg-mid'; colorHex = '#3b82f6'; }
                 else if (level.includes('低') || e < 0.5) { colorClass = 'bg-low'; colorHex = '#ef4444'; }
 
-                // 決定圖標 (核心修改邏輯)
+                // 決定圖標
                 let iconClass = 'fa-bicycle';
                 
                 if (isBenchmark) {
-                    // ★ 標竿站點強制使用打勾圖示 ★
-                    iconClass = 'fa-check';
+                    iconClass = 'fa-check'; // 標竿站點固定打勾
                 } else {
-                    // 非標竿站點才依據模式變換圖示
                     if (currentMode === 'dispatch') {
                         if (netFlow > 0) iconClass = 'fa-arrow-up';
                         else if (netFlow < 0) iconClass = 'fa-arrow-down';
@@ -530,13 +537,12 @@
                         iconClass = 'fa-chart-bar';
                     } else {
                         if (actionText.includes('縮減')) iconClass = 'fa-compress-alt';
-                        else if (actionText.includes('維持')) iconClass = 'fa-check'; // 這裡可能與標竿重疊，但標竿已在前一個if處理
+                        else if (actionText.includes('維持')) iconClass = 'fa-check'; 
                         else if (actionText.includes('觀察')) iconClass = 'fa-eye';
                     }
                 }
 
                 // Marker
-                // 標竿站點字體顏色用深色 (#333)，其他用白色 (#fff)
                 const iconHtml = `
                     <div style="background-color: ${colorHex}" class="marker-pin"></div>
                     <i class="fas ${iconClass} marker-icon" style="color: ${colorHex === '#facc15' ? '#333' : '#fff'}"></i>
@@ -571,19 +577,16 @@
                 const tr = document.createElement('tr');
                 tr.className = 'station-row';
                 tr.innerHTML = `
-                    <td class="px-4 py-3 text-center"><span class="inline-block w-3 h-3 rounded-full ${colorClass} shadow-sm border border-black/10" title="${level}"></span></td>
-                    <td class="px-4 py-3 font-bold text-slate-700">${name}</td>
-                    <td class="px-4 py-3 text-center text-slate-500 font-mono">${e.toFixed(3)}</td>
-                    <td class="px-4 py-3 text-center font-bold ${slackDocks > 5 ? 'text-red-500' : ''}">
-                        ${slackDocks > 0 ? slackDocks.toFixed(1) : '-'}
-                    </td>
-                    <td class="px-4 py-3 text-center font-bold ${netFlow > 0 ? 'text-red-500' : (netFlow < 0 ? 'text-green-500' : 'text-gray-400')}">
+                    <td class="px-3 py-2 text-center"><span class="inline-block w-3 h-3 rounded-full ${colorClass} shadow-sm border border-black/10" title="${level}"></span></td>
+                    <td class="px-3 py-2 font-bold text-slate-700 whitespace-nowrap overflow-hidden text-ellipsis max-w-[120px]" title="${name}">${name}</td>
+                    <td class="px-3 py-2 text-center text-slate-500 font-mono">${e.toFixed(2)}</td>
+                    <td class="px-3 py-2 text-center font-bold ${netFlow > 0 ? 'text-red-500' : (netFlow < 0 ? 'text-green-500' : 'text-gray-400')}">
                         ${netFlow > 0 ? '+' + netFlow : netFlow}
                     </td>
-                    <td class="px-4 py-3 text-xs text-slate-600 font-medium">${actionText}</td>
-                    <td class="px-4 py-3 text-right">
+                    <td class="px-3 py-2 text-xs text-slate-600 font-medium truncate max-w-[120px]" title="${actionText}">${actionText}</td>
+                    <td class="px-3 py-2 text-right">
                         <button onclick="zoomTo(${lat}, ${lng}, '${name}')" class="text-blue-600 hover:text-white hover:bg-blue-600 border border-blue-200 px-2 py-1 rounded transition text-xs">
-                            定位
+                            <i class="fas fa-crosshairs"></i>
                         </button>
                     </td>
                 `;
