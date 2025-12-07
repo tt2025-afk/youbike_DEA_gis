@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YouBike 營運決策支援系統 - 大安區專用</title>
+    <title>YouBike 營運決策中控台</title>
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -11,358 +11,506 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- DataTables CSS -->
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
-
+    
     <style>
-        body { margin: 0; padding: 0; display: flex; flex-direction: column; height: 100vh; background-color: #f3f4f6; }
+        body { margin: 0; padding: 0; display: flex; flex-direction: column; height: 100vh; background-color: #f8fafc; font-family: 'Microsoft JhengHei', 'Segoe UI', sans-serif; }
         
-        #header { height: 60px; z-index: 50; }
-        #dashboard { height: 100px; z-index: 40; }
+        /* 佈局 */
+        #header { height: 70px; z-index: 50; }
         #main-container { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; }
-        #map-container { flex: 3; min-height: 400px; position: relative; }
-        #table-container { flex: 2; overflow-y: auto; background: white; border-top: 4px solid #e5e7eb; padding: 10px; }
+        #map-container { flex: 5; position: relative; min-height: 400px; }
+        #list-container { flex: 4; background: white; display: flex; flex-direction: column; border-top: 4px solid #94a3b8; }
         #map { height: 100%; width: 100%; }
 
         /* 自訂標記樣式 */
         .custom-div-icon { background: transparent; border: none; }
         .marker-pin {
-            width: 34px; height: 34px; border-radius: 50% 50% 50% 0;
+            width: 36px; height: 36px; border-radius: 50% 50% 50% 0;
             position: absolute; transform: rotate(-45deg);
-            left: 50%; top: 50%; margin: -17px 0 0 -17px;
-            box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+            left: 50%; top: 50%; margin: -18px 0 0 -18px;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.4);
             display: flex; align-items: center; justify-content: center;
+            border: 2px solid white;
         }
         .marker-pin::after {
-            content: ''; width: 26px; height: 26px; margin: 4px 0 0 4px;
+            content: ''; width: 24px; height: 24px; margin: 4px 0 0 4px;
             background: #fff; position: absolute; border-radius: 50%;
         }
         .marker-icon {
             position: absolute; width: 22px; font-size: 16px;
-            left: 0; right: 0; margin: 9px auto; text-align: center;
+            left: 0; right: 0; margin: 10px auto; text-align: center;
             z-index: 10; font-weight: bold;
         }
 
-        /* 顏色定義 (對應 Python 輸出的決策) */
-        .bg-action-expand { background-color: #10b981; } /* 綠: 擴張 */
-        .bg-action-reduce { background-color: #ef4444; } /* 紅: 縮減 */
-        .bg-action-relocate { background-color: #f97316; } /* 橘: 整併/撤站 */
-        .bg-action-maintain { background-color: #3b82f6; } /* 藍: 維持 */
+        /* 顏色定義 */
+        .bg-benchmark { background-color: #facc15; } /* 黃 */
+        .bg-high { background-color: #22c55e; }      /* 綠 */
+        .bg-mid { background-color: #3b82f6; }       /* 藍 */
+        .bg-low { background-color: #ef4444; }       /* 紅 */
+
+        /* 列表樣式 */
+        .station-row:hover { background-color: #f0f9ff; cursor: pointer; border-left: 4px solid #0ea5e9; }
+        .station-row.active { background-color: #e0f2fe; border-left: 4px solid #0284c7; font-weight: bold; }
         
-        /* 表格樣式微調 */
-        table.dataTable thead th { background-color: #f8fafc; font-size: 0.85rem; color: #475569; }
-        table.dataTable tbody td { font-size: 0.85rem; padding: 8px 10px; }
+        /* 按鈕樣式 */
+        .mode-btn { opacity: 0.6; transition: all 0.2s; border: 1px solid transparent; }
+        .mode-btn.active { opacity: 1; transform: scale(1.05); box-shadow: 0 2px 5px rgba(0,0,0,0.3); border-color: white; }
+        
+        .sub-btn { background: white; color: #475569; border: 1px solid #cbd5e1; }
+        .sub-btn.active { background: #0f172a; color: white; border-color: #0f172a; }
     </style>
 </head>
 <body>
 
     <!-- 1. 頂部導航列 -->
-    <div id="header" class="bg-slate-800 text-white flex items-center justify-between px-6 shadow-lg">
+    <div id="header" class="bg-slate-900 text-white flex items-center justify-between px-4 shadow-lg">
         <div class="flex items-center space-x-3">
-            <div class="bg-yellow-500 p-2 rounded-lg text-slate-900"><i class="fas fa-chart-line text-lg"></i></div>
+            <div class="bg-yellow-500 p-1.5 rounded text-slate-900"><i class="fas fa-bicycle text-xl"></i></div>
             <div>
-                <h1 class="text-lg font-bold tracking-wide">YouBike 營運決策支援系統</h1>
-                <p class="text-xs text-slate-400">大安區站點資源配置優化 (DEA Model M=2, S=3)</p>
+                <h1 class="text-lg font-bold tracking-wide leading-tight">YouBike 營運決策中控台</h1>
+                <p class="text-xs text-slate-400">大安區站點資源配置優化</p>
             </div>
         </div>
         
+        <!-- 右側控制區 -->
         <div class="flex items-center space-x-4">
-            <div class="bg-slate-700 px-3 py-1.5 rounded border border-slate-600 flex items-center">
-                <label class="text-xs text-slate-300 mr-2"><i class="fas fa-file-csv mr-1"></i>匯入 Python 結果檔:</label>
-                <input type="file" id="csvInput" accept=".csv" class="text-xs text-slate-300 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-blue-600 file:text-white hover:file:bg-blue-500 cursor-pointer"/>
+            <!-- 模式切換 -->
+            <div class="flex bg-slate-800 rounded p-1 space-x-1">
+                <button onclick="setMode('resource')" id="btn-resource" class="mode-btn active px-3 py-1.5 rounded bg-blue-600 text-white text-xs font-bold flex items-center">
+                    <i class="fas fa-cubes mr-2"></i> 資源規模
+                </button>
+                <button onclick="setMode('dispatch')" id="btn-dispatch" class="mode-btn px-3 py-1.5 rounded bg-purple-600 text-white text-xs font-bold flex items-center">
+                    <i class="fas fa-truck-moving mr-2"></i> 營運調度
+                </button>
+            </div>
+
+            <!-- CSV 上傳 -->
+            <div class="flex items-center">
+                <label class="cursor-pointer text-slate-200 text-xs flex items-center hover:text-white transition bg-slate-600 px-3 py-1.5 rounded border border-slate-500">
+                    <i class="fas fa-upload mr-1"></i> 匯入檔案
+                    <input type="file" id="csvInput" accept=".csv,.txt" class="hidden" />
+                </label>
             </div>
         </div>
     </div>
 
-    <!-- 2. 決策儀表板 (KPIs) -->
-    <div id="dashboard" class="bg-white border-b border-gray-200 px-6 py-3 grid grid-cols-5 gap-4 items-center shadow-sm">
-        
-        <!-- 卡片 1: 總站點 -->
-        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 flex flex-col justify-center items-center cursor-pointer hover:bg-gray-100 transition" onclick="filterMap('all')">
-            <span class="text-xs text-gray-500 font-bold uppercase">總分析站點</span>
-            <span class="text-2xl font-black text-gray-700" id="stat-total">-</span>
-        </div>
-
-        <!-- 卡片 2: 建議擴張 -->
-        <div class="bg-green-50 rounded-lg p-3 border border-green-200 flex flex-col justify-center items-center cursor-pointer hover:bg-green-100 transition group" onclick="filterMap('expand')">
-            <span class="text-xs text-green-700 font-bold uppercase flex items-center"><i class="fas fa-expand-arrows-alt mr-1"></i> 優先擴張</span>
-            <span class="text-2xl font-black text-green-600 group-hover:scale-110 transition" id="stat-expand">-</span>
-        </div>
-
-        <!-- 卡片 3: 建議縮減 -->
-        <div class="bg-red-50 rounded-lg p-3 border border-red-200 flex flex-col justify-center items-center cursor-pointer hover:bg-red-100 transition group" onclick="filterMap('reduce')">
-            <span class="text-xs text-red-700 font-bold uppercase flex items-center"><i class="fas fa-compress-arrows-alt mr-1"></i> 縮減規模</span>
-            <span class="text-2xl font-black text-red-600 group-hover:scale-110 transition" id="stat-reduce">-</span>
-        </div>
-
-        <!-- 卡片 4: 建議遷移 -->
-        <div class="bg-orange-50 rounded-lg p-3 border border-orange-200 flex flex-col justify-center items-center cursor-pointer hover:bg-orange-100 transition group" onclick="filterMap('relocate')">
-            <span class="text-xs text-orange-700 font-bold uppercase flex items-center"><i class="fas fa-map-marked-alt mr-1"></i> 整併/撤站</span>
-            <span class="text-2xl font-black text-orange-600 group-hover:scale-110 transition" id="stat-relocate">-</span>
-        </div>
-
-        <!-- 卡片 5: 嚴重缺車 (調度) -->
-        <div class="bg-yellow-50 rounded-lg p-3 border border-yellow-200 flex flex-col justify-center items-center cursor-pointer hover:bg-yellow-100 transition group" onclick="filterMap('shortage')">
-            <span class="text-xs text-yellow-700 font-bold uppercase flex items-center"><i class="fas fa-truck-loading mr-1"></i> 嚴重缺車</span>
-            <span class="text-2xl font-black text-yellow-600 group-hover:scale-110 transition" id="stat-shortage">-</span>
-        </div>
-    </div>
-
-    <!-- 3. 主內容區 -->
     <div id="main-container">
         
         <!-- 地圖區 -->
         <div id="map-container">
             <div id="map"></div>
             
-            <!-- 地圖圖例 -->
-            <div class="absolute bottom-6 right-6 bg-white p-3 rounded-lg shadow-lg z-[400] text-xs opacity-90">
-                <h4 class="font-bold mb-2 border-b pb-1">決策燈號說明</h4>
-                <div class="flex items-center mb-1"><span class="w-3 h-3 rounded-full bg-action-expand mr-2"></span> 優先擴張 (高效+缺車)</div>
-                <div class="flex items-center mb-1"><span class="w-3 h-3 rounded-full bg-action-reduce mr-2"></span> 縮減規模 (嚴重過剩)</div>
-                <div class="flex items-center mb-1"><span class="w-3 h-3 rounded-full bg-action-relocate mr-2"></span> 整併/撤站 (效率極低)</div>
-                <div class="flex items-center mb-1"><span class="w-3 h-3 rounded-full bg-action-maintain mr-2"></span> 維持/觀察</div>
-                <hr class="my-2">
-                <div class="flex items-center mb-1"><i class="fas fa-arrow-up text-red-500 mr-2"></i> 淨輸出 (缺車)</div>
-                <div class="flex items-center"><i class="fas fa-arrow-down text-green-500 mr-2"></i> 淨吸納 (滿位)</div>
+            <!-- 浮動控制面板 -->
+            <div class="absolute top-4 right-4 z-[400] flex flex-col items-end space-y-3 pointer-events-none">
+                
+                <!-- 資源規模子篩選 (僅在資源模式顯示) -->
+                <div id="resource-filters" class="bg-white/95 backdrop-blur shadow-xl rounded-lg p-2 pointer-events-auto border border-slate-200">
+                    <div class="text-[10px] font-bold text-slate-500 uppercase mb-1 px-1">規模關注點：</div>
+                    <div class="flex space-x-1">
+                        <button onclick="setSubFilter('all_resource')" id="sub-all-resource" class="sub-btn active px-2 py-1 rounded text-xs font-bold flex items-center transition">
+                            全部
+                        </button>
+                        <button onclick="setSubFilter('reduce')" id="sub-reduce" class="sub-btn px-2 py-1 rounded text-xs font-bold flex items-center transition hover:text-red-500">
+                            <i class="fas fa-compress-alt mr-1"></i> 縮減規模
+                        </button>
+                        <button onclick="setSubFilter('observe')" id="sub-observe" class="sub-btn px-2 py-1 rounded text-xs font-bold flex items-center transition hover:text-yellow-600">
+                            <i class="fas fa-eye mr-1"></i> 列入觀察
+                        </button>
+                        <button onclick="setSubFilter('maintain')" id="sub-maintain" class="sub-btn px-2 py-1 rounded text-xs font-bold flex items-center transition hover:text-blue-500">
+                            <i class="fas fa-check mr-1"></i> 維持現狀
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 調度子篩選 (僅在調度模式顯示) -->
+                <div id="dispatch-filters" class="bg-white/95 backdrop-blur shadow-xl rounded-lg p-2 pointer-events-auto hidden border border-slate-200">
+                    <div class="text-[10px] font-bold text-slate-500 uppercase mb-1 px-1">調度關注點：</div>
+                    <div class="flex space-x-1">
+                        <button onclick="setSubFilter('supply')" id="sub-supply" class="sub-btn active px-2 py-1 rounded text-xs font-bold flex items-center transition">
+                            <i class="fas fa-arrow-up text-red-500 mr-1"></i> 頻繁補給
+                        </button>
+                        <button onclick="setSubFilter('clear')" id="sub-clear" class="sub-btn px-2 py-1 rounded text-xs font-bold flex items-center transition">
+                            <i class="fas fa-arrow-down text-green-500 mr-1"></i> 加強清運
+                        </button>
+                        <button onclick="setSubFilter('balance')" id="sub-balance" class="sub-btn px-2 py-1 rounded text-xs font-bold flex items-center transition hover:text-blue-500">
+                            <i class="fas fa-balance-scale mr-1"></i> 流量平衡
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 顏色圖例 -->
+                <div class="bg-white/95 backdrop-blur shadow-xl rounded-lg p-3 pointer-events-auto border border-slate-200 w-32">
+                    <h4 class="text-xs font-bold text-slate-500 mb-2 border-b pb-1">效率等級</h4>
+                    <div class="space-y-1.5 text-xs font-medium text-slate-700">
+                        <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-benchmark mr-2 shadow-sm border border-black/10"></span> 標竿 (黃)</div>
+                        <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-high mr-2 shadow-sm border border-black/10"></span> 高效 (綠)</div>
+                        <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-mid mr-2 shadow-sm border border-black/10"></span> 中效 (藍)</div>
+                        <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-low mr-2 shadow-sm border border-black/10"></span> 低效 (紅)</div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- 資料列表區 -->
-        <div id="table-container">
-            <div class="flex justify-between items-center mb-2">
-                <h3 class="font-bold text-gray-700"><i class="fas fa-list-ul mr-2"></i>站點決策清單</h3>
-                <span class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">點擊表頭可排序，使用右側搜尋框查找特定站點</span>
+        <!-- 列表區 -->
+        <div id="list-container">
+            <div class="px-4 py-2 border-b bg-gray-50 flex justify-between items-center shadow-sm z-10 h-10">
+                <div class="flex items-center">
+                    <h3 class="font-bold text-slate-800 mr-3 text-sm" id="list-title">資源分配建議列表</h3>
+                    <span class="bg-slate-200 text-slate-600 text-xs px-2 py-0.5 rounded-full font-bold" id="list-count">0</span>
+                </div>
+                <div class="text-xs text-slate-500 font-medium bg-yellow-50 px-2 py-1 rounded border border-yellow-200 text-yellow-700">
+                    <i class="fas fa-sort-amount-down-alt mr-1"></i> <span id="sort-desc">依效率值 (低→高) 排序</span>
+                </div>
             </div>
-            <table id="dataTable" class="display w-full border-collapse" style="width:100%">
-                <thead>
-                    <tr>
-                        <th class="text-left">站點名稱 (DMU)</th>
-                        <th>效率值 (E)</th>
-                        <th>車位過剩 (Slack)</th>
-                        <th>人口過剩 (Pop)</th>
-                        <th>淨流量 (NetFlow)</th>
-                        <th>資源建議</th>
-                        <th>空間決策 (行動)</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- JS 動態填入 -->
-                </tbody>
-            </table>
+
+            <div class="flex-grow overflow-auto relative">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-white sticky top-0 z-10 text-[11px] text-slate-500 uppercase tracking-wider font-bold border-b">
+                        <tr>
+                            <th class="px-4 py-2 w-10 text-center">燈號</th>
+                            <th class="px-4 py-2">站點名稱</th>
+                            <th class="px-4 py-2 w-20 text-center">效率值</th>
+                            <th class="px-4 py-2 w-24 text-center">建議減少車輛<br>(Slack)</th>
+                            <th class="px-4 py-2 w-24 text-center">淨流量</th>
+                            <th class="px-4 py-2 w-1/3" id="col-action">建議行動</th>
+                            <th class="px-4 py-2 w-16 text-right">定位</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body" class="text-sm text-slate-700">
+                        <!-- JS 填充 -->
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
     <!-- Scripts -->
-    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-
+    
     <script>
         let map;
-        let allMarkers = [];
-        let dataTable;
+        let allData = [];
+        let markers = [];
+        let currentMode = 'resource';
+        let currentSubFilter = 'all_resource'; 
 
         // 初始化
-        $(document).ready(function() {
+        document.addEventListener('DOMContentLoaded', () => {
             initMap();
-            initTable();
-            loadDemoData(); // 載入您真實數據的前幾筆作為範例
+            loadDemoData(); // 預載範例
+            document.getElementById('csvInput').addEventListener('change', handleFileUpload);
         });
 
         function initMap() {
             map = L.map('map', { center: [25.0330, 121.5430], zoom: 14 });
             L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-                attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+                attribution: '&copy; OpenStreetMap contributors',
                 maxZoom: 19
             }).addTo(map);
         }
 
-        function initTable() {
-            dataTable = $('#dataTable').DataTable({
-                paging: false,
-                scrollY: '300px',
-                scrollCollapse: true,
-                info: false,
-                searching: true,
-                order: [[ 6, 'desc' ]], // 預設依空間決策排序
-                language: { search: "搜尋站點:", zeroRecords: "沒有符合的資料" }
-            });
+        // --- 模式切換 ---
+        window.setMode = function(mode) {
+            currentMode = mode;
+            
+            // 按鈕樣式
+            document.getElementById('btn-resource').classList.toggle('active', mode === 'resource');
+            document.getElementById('btn-dispatch').classList.toggle('active', mode === 'dispatch');
+            
+            // 介面文字更新與子選單切換
+            const resourceFilters = document.getElementById('resource-filters');
+            const dispatchFilters = document.getElementById('dispatch-filters');
+            const listTitle = document.getElementById('list-title');
+            const sortDesc = document.getElementById('sort-desc');
+            const colAction = document.getElementById('col-action');
+
+            if (mode === 'dispatch') {
+                resourceFilters.classList.add('hidden');
+                dispatchFilters.classList.remove('hidden');
+                listTitle.innerText = '營運調度建議列表';
+                colAction.innerText = '調度策略';
+                setSubFilter('supply'); // 切換到調度時預設顯示補給
+            } else {
+                dispatchFilters.classList.add('hidden');
+                resourceFilters.classList.remove('hidden');
+                listTitle.innerText = '資源分配與規模調整列表';
+                colAction.innerText = '規模建議';
+                setSubFilter('all_resource'); // 切換回資源時預設顯示全部
+            }
         }
 
-        // 解析 CSV (包含 BOM 處理與空欄位過濾)
+        window.setSubFilter = function(filter) {
+            currentSubFilter = filter;
+            
+            // 重置所有子按鈕樣式
+            document.querySelectorAll('.sub-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // 設定當前按鈕樣式
+            const btnMap = {
+                'all_resource': 'sub-all-resource',
+                'reduce': 'sub-reduce',
+                'observe': 'sub-observe', 
+                'maintain': 'sub-maintain',
+                'supply': 'sub-supply',
+                'clear': 'sub-clear',
+                'balance': 'sub-balance' 
+            };
+            
+            if(btnMap[filter]) {
+                document.getElementById(btnMap[filter]).classList.add('active');
+            }
+
+            // 更新排序描述
+            const sortDesc = document.getElementById('sort-desc');
+            if (currentMode === 'resource') {
+                 sortDesc.innerText = '排序：效率低 (紅) → 效率高 (黃)';
+            } else {
+                if (filter === 'supply') sortDesc.innerText = '排序：淨輸出 (缺車嚴重者優先)';
+                else if (filter === 'clear') sortDesc.innerText = '排序：淨吸納 (滿位嚴重者優先)';
+                else sortDesc.innerText = '排序：淨流量接近 0 優先';
+            }
+            
+            renderView();
+        }
+
+        // --- 檔案處理 (自動偵測編碼) ---
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            
+            // 嘗試先用 Big5 讀取 (Excel 預設)
+            reader.readAsText(file, 'Big5'); 
+            
+            reader.onload = (e) => {
+                let text = e.target.result;
+                let data = parseCSV(text);
+                
+                // 檢查是否包含亂碼或解析失敗
+                if (data.length === 0 || !JSON.stringify(data[0]).includes('效率')) {
+                     const readerUTF8 = new FileReader();
+                     readerUTF8.readAsText(file, 'UTF-8');
+                     readerUTF8.onload = (e2) => {
+                         const textUTF8 = e2.target.result;
+                         const dataUTF8 = parseCSV(textUTF8);
+                         if (dataUTF8.length > 0) {
+                             allData = dataUTF8;
+                             renderView();
+                             const group = new L.featureGroup(markers);
+                             if(markers.length > 0) map.fitBounds(group.getBounds().pad(0.1));
+                         } else {
+                             alert('讀取失敗，請確認檔案格式');
+                         }
+                     }
+                } else {
+                    allData = data;
+                    renderView();
+                    const group = new L.featureGroup(markers);
+                    if(markers.length > 0) map.fitBounds(group.getBounds().pad(0.1));
+                }
+            };
+        }
+
         function parseCSV(text) {
             if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
-            const lines = text.split('\n').filter(l => l.trim()); // 過濾空行
-            const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+            const lines = text.split('\n').filter(l => l.trim());
+            const delimiter = text.indexOf('\t') !== -1 ? '\t' : ',';
+            const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
             
-            const data = lines.slice(1).map(line => {
-                const row = line.split(',');
-                // 允許 CSV 尾端有空欄位，只要前幾個關鍵欄位有值即可
-                if(row.length < 5) return null; 
+            return lines.slice(1).map(line => {
+                const row = line.split(delimiter);
+                if (row.length < 2) return null;
                 let obj = {};
                 headers.forEach((h, i) => {
-                    if (h) { // 忽略無名標題
-                        obj[h] = row[i] ? row[i].trim().replace(/^"|"$/g, '') : '';
-                    }
+                    if(h) obj[h] = row[i] ? row[i].trim().replace(/^"|"$/g, '') : '';
                 });
                 return obj;
             }).filter(item => item !== null);
-            
-            return data;
         }
 
-        function renderSystem(data) {
-            // 清除舊資料
-            allMarkers.forEach(m => map.removeLayer(m));
-            allMarkers = [];
-            dataTable.clear();
+        // --- 核心渲染 ---
+        function renderView() {
+            markers.forEach(m => map.removeLayer(m));
+            markers = [];
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
 
-            let stats = { total: 0, expand: 0, reduce: 0, relocate: 0, shortage: 0 };
+            let displayData = [];
 
-            data.forEach((row) => {
-                // 1. 欄位對應 (依據您提供的 dea_results_for_gis.csv)
-                const lat = parseFloat(row.Latitude);
-                const lng = parseFloat(row.Longitude);
-                if (isNaN(lat) || isNaN(lng)) return;
-
-                const name = row.DMU;
-                const e = parseFloat(row.DEA_E_Score || 0).toFixed(3);
-                const slackDocks = parseFloat(row.Slack_Docks || 0).toFixed(1);
-                const slackPop = parseFloat(row.Slack_Pop || 0).toFixed(0);
-                const nf = parseInt(row.NetFlow || 0);
+            // 1. 篩選
+            displayData = allData.filter(item => {
+                const resourceKey = Object.keys(item).find(k => k.includes('資源') || k.includes('規模'));
+                const dispatchKey = Object.keys(item).find(k => k.includes('調度') || k.includes('流量'));
                 
-                // 決策字串判斷 (對應 Python 輸出)
-                const decision = row['空間決策'] || "【維持現狀】";
-                const resourceAdvice = row['資源建議'] || "";
+                const resourceAdvice = item[resourceKey] || "";
+                const dispatchAdvice = item[dispatchKey] || "";
+                const nf = parseInt(item.NetFlow || item.NF || item['淨流量'] || 0);
 
-                // 2. 統計
-                stats.total++;
-                if(decision.includes("擴張")) stats.expand++;
-                if(decision.includes("縮減")) stats.reduce++;
-                if(decision.includes("整併") || decision.includes("撤站")) stats.relocate++;
-                if(nf > 400) stats.shortage++; // 嚴重缺車門檻
+                if (currentMode === 'resource') {
+                    if (currentSubFilter === 'all_resource') return true;
+                    if (currentSubFilter === 'reduce') return resourceAdvice.includes('【縮減規模】') || resourceAdvice.includes('【縮減規模／重新選址】');
+                    if (currentSubFilter === 'observe') return resourceAdvice.includes('【列入觀察】');
+                    if (currentSubFilter === 'maintain') return resourceAdvice.includes('【維持現狀】');
+                } else {
+                    if (currentSubFilter === 'supply') return dispatchAdvice.includes('頻繁補給') || dispatchAdvice.includes('優先擴張');
+                    if (currentSubFilter === 'clear') return dispatchAdvice.includes('加強清運');
+                    if (currentSubFilter === 'balance') return dispatchAdvice.includes('流量平衡');
+                }
+                return true;
+            });
 
-                // 3. 決定樣式
-                let color = "#3b82f6"; // 藍 (維持)
-                let iconClass = "fa-bicycle";
+            // 2. 排序
+            displayData.sort((a, b) => {
+                const eA = parseFloat(a.DEA_E_Score || a['效率值'] || 0);
+                const eB = parseFloat(b.DEA_E_Score || b['效率值'] || 0);
+                const nfA = parseInt(a.NetFlow || a['淨流量'] || 0);
+                const nfB = parseInt(b.NetFlow || b['淨流量'] || 0);
+
+                if (currentMode === 'resource') {
+                    return eA - eB; // 效率低優先
+                } else {
+                    if (currentSubFilter === 'supply') return nfB - nfA; // 淨輸出大優先
+                    else if (currentSubFilter === 'clear') return nfA - nfB; // 淨吸納大 (負值小) 優先
+                    else return Math.abs(nfA) - Math.abs(nfB); // 平衡優先 (接近0)
+                }
+            });
+
+            document.getElementById('list-count').innerText = `${displayData.length} 站`;
+
+            // 3. 渲染
+            displayData.forEach(item => {
+                const lat = parseFloat(item.Latitude || item.Lat);
+                const lng = parseFloat(item.Longitude || item.Lng);
+                const name = item.DMU || item.DMU_Name || item['站點名稱'];
+                const e = parseFloat(item.DEA_E_Score || item.E || item['效率值'] || 0);
+                const netFlow = parseInt(item.NetFlow || item.NF || item['淨流量'] || 0);
+                // 讀取 Slack_Docks，若無則為 0
+                const slackDocks = parseFloat(item.Slack_Docks || item.Slack_X1 || item['車位過剩'] || 0);
                 
-                if (decision.includes("擴張")) { color = "#10b981"; iconClass = "fa-expand-alt"; } // 綠
-                else if (decision.includes("縮減")) { color = "#ef4444"; iconClass = "fa-compress-alt"; } // 紅
-                else if (decision.includes("整併") || decision.includes("撤站")) { color = "#f97316"; iconClass = "fa-map-marked-alt"; } // 橘
+                const levelKey = Object.keys(item).find(k => k.includes('效率等級'));
+                const level = item[levelKey] || "";
                 
-                // 決定箭頭方向 (淨流量)
-                let flowIcon = "";
-                if (nf > 400) flowIcon = "fa-arrow-up";   // 缺車 (紅箭頭)
-                else if (nf < -300) flowIcon = "fa-arrow-down"; // 滿位 (綠箭頭)
+                let actionText = '';
+                if (currentMode === 'resource') {
+                    const key = Object.keys(item).find(k => k.includes('資源') || k.includes('規模'));
+                    actionText = item[key] || "-";
+                } else {
+                    const key = Object.keys(item).find(k => k.includes('調度') || k.includes('流量'));
+                    actionText = item[key] || "-";
+                }
 
-                // 4. 建立地圖 Marker
+                if(isNaN(lat) || isNaN(lng)) return;
+
+                // 決定顏色
+                let colorClass = 'bg-mid';
+                let colorHex = '#3b82f6';
+                if (level.includes('標竿') || e >= 0.999) { colorClass = 'bg-benchmark'; colorHex = '#facc15'; }
+                else if (level.includes('高') || (e >= 0.8 && e < 0.999)) { colorClass = 'bg-high'; colorHex = '#22c55e'; }
+                else if (level.includes('中') || (e >= 0.5 && e < 0.8)) { colorClass = 'bg-mid'; colorHex = '#3b82f6'; }
+                else if (level.includes('低') || e < 0.5) { colorClass = 'bg-low'; colorHex = '#ef4444'; }
+
+                // 決定圖標
+                let iconClass = 'fa-bicycle';
+                if (currentMode === 'dispatch') {
+                    if (netFlow > 0) iconClass = 'fa-arrow-up';
+                    else if (netFlow < 0) iconClass = 'fa-arrow-down';
+                    else iconClass = 'fa-check-circle';
+                } else {
+                    if (actionText.includes('縮減')) iconClass = 'fa-compress-alt';
+                    else if (actionText.includes('維持')) iconClass = 'fa-check';
+                    else if (actionText.includes('觀察')) iconClass = 'fa-eye';
+                }
+
+                // Marker
                 const iconHtml = `
-                    <div style="background-color: ${color}" class="marker-pin"></div>
-                    <i class="fas ${flowIcon || iconClass} marker-icon" 
-                       style="color: ${nf > 400 ? '#dc2626' : (nf < -300 ? '#16a34a' : '#fff')}"></i>
+                    <div style="background-color: ${colorHex}" class="marker-pin"></div>
+                    <i class="fas ${iconClass} marker-icon" style="color: ${colorHex === '#facc15' ? '#333' : '#fff'}"></i>
                 `;
-                
                 const marker = L.marker([lat, lng], {
-                    icon: L.divIcon({ className: 'custom-div-icon', html: iconHtml, iconSize: [34, 42], iconAnchor: [17, 42], popupAnchor: [0, -40] })
+                    icon: L.divIcon({ className: 'custom-div-icon', html: iconHtml, iconSize: [36, 42], iconAnchor: [18, 42], popupAnchor: [0, -40] })
                 });
 
-                // Popup 內容
-                const popupHtml = `
-                    <div class="p-1 min-w-[220px]">
-                        <h4 class="font-bold text-gray-800 border-b pb-1 mb-2">${name}</h4>
-                        <div class="text-sm space-y-1">
-                            <div><span class="text-gray-500">決策建議:</span> <span class="font-bold" style="color:${color}">${decision}</span></div>
-                            <div><span class="text-gray-500">效率值 (E):</span> ${e}</div>
-                            <div><span class="text-gray-500">車位過剩:</span> <span class="${slackDocks > 5 ? 'text-red-500 font-bold' : ''}">${slackDocks > 0 ? slackDocks + ' 柱' : '-'}</span></div>
-                            <div><span class="text-gray-500">淨流量:</span> <span class="${nf > 0 ? 'text-red-500' : 'text-green-500'} font-bold">${nf > 0 ? '+' + nf : nf}</span></div>
+                // Popup
+                const popupContent = `
+                    <div class="p-1 min-w-[200px]">
+                        <h3 class="font-bold text-slate-800 border-b pb-1 mb-2">${name}</h3>
+                        <div class="space-y-1 text-sm">
+                            <div class="flex justify-between"><span class="text-gray-500">效率值:</span> <b>${e.toFixed(3)}</b></div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">建議減少車輛:</span> 
+                                <span class="${slackDocks > 5 ? 'text-red-500 font-bold' : ''}">${slackDocks > 0 ? slackDocks.toFixed(1) + ' 輛' : '-'}</span>
+                            </div>
+                            <div class="flex justify-between"><span class="text-gray-500">淨流量:</span> <span class="${netFlow>0?'text-red-500':'text-green-500'} font-bold">${netFlow>0?'+'+netFlow:netFlow}</span></div>
+                            <div class="mt-2 bg-slate-50 p-2 rounded text-xs border border-slate-100">
+                                <span class="font-bold text-slate-600 block mb-1">建議行動:</span>
+                                ${actionText}
+                            </div>
                         </div>
                     </div>
                 `;
-                marker.bindPopup(popupHtml);
-                marker.data = { decision: decision, nf: nf };
+                marker.bindPopup(popupContent);
                 marker.addTo(map);
-                allMarkers.push(marker);
+                markers.push(marker);
 
-                // 5. 建立表格 Row
-                const locateBtn = `<button onclick="focusMarker(${lat}, ${lng}, '${name}')" class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded text-xs transition"><i class="fas fa-search-location"></i></button>`;
-                const decisionTag = `<span class="px-2 py-1 rounded text-xs font-bold text-white" style="background-color: ${color}">${decision}</span>`;
-
-                dataTable.row.add([
-                    name,
-                    e,
-                    slackDocks > 5 ? `<span class="text-red-600 font-bold">${slackDocks}</span>` : slackDocks,
-                    slackPop > 1000 ? `<span class="text-orange-500">${slackPop}</span>` : '-',
-                    nf > 0 ? `+${nf}` : nf,
-                    resourceAdvice,
-                    decisionTag,
-                    locateBtn
-                ]);
+                // Table Row
+                const tr = document.createElement('tr');
+                tr.className = 'station-row';
+                tr.innerHTML = `
+                    <td class="px-4 py-3 text-center"><span class="inline-block w-3 h-3 rounded-full ${colorClass} shadow-sm border border-black/10" title="${level}"></span></td>
+                    <td class="px-4 py-3 font-bold text-slate-700">${name}</td>
+                    <td class="px-4 py-3 text-center text-slate-500 font-mono">${e.toFixed(3)}</td>
+                    <td class="px-4 py-3 text-center font-bold ${slackDocks > 5 ? 'text-red-500' : ''}">
+                        ${slackDocks > 0 ? slackDocks.toFixed(1) : '-'}
+                    </td>
+                    <td class="px-4 py-3 text-center font-bold ${netFlow > 0 ? 'text-red-500' : (netFlow < 0 ? 'text-green-500' : 'text-gray-400')}">
+                        ${netFlow > 0 ? '+' + netFlow : netFlow}
+                    </td>
+                    <td class="px-4 py-3 text-xs text-slate-600 font-medium">${actionText}</td>
+                    <td class="px-4 py-3 text-right">
+                        <button onclick="zoomTo(${lat}, ${lng}, '${name}')" class="text-blue-600 hover:text-white hover:bg-blue-600 border border-blue-200 px-2 py-1 rounded transition text-xs">
+                            定位
+                        </button>
+                    </td>
+                `;
+                tr.onclick = (e) => {
+                    if(e.target.closest('button')) return;
+                    zoomTo(lat, lng, name);
+                    document.querySelectorAll('.station-row').forEach(r => r.classList.remove('active'));
+                    tr.classList.add('active');
+                };
+                tbody.appendChild(tr);
             });
-
-            // 更新儀表板
-            $('#stat-total').text(stats.total);
-            $('#stat-expand').text(stats.expand);
-            $('#stat-reduce').text(stats.reduce);
-            $('#stat-relocate').text(stats.relocate);
-            $('#stat-shortage').text(stats.shortage);
-
-            dataTable.draw();
         }
 
-        function filterMap(type) {
-            allMarkers.forEach(m => {
-                const d = m.data.decision;
-                const nf = m.data.nf;
-                let show = false;
-
-                if (type === 'all') show = true;
-                else if (type === 'expand' && d.includes("擴張")) show = true;
-                else if (type === 'reduce' && d.includes("縮減")) show = true;
-                else if (type === 'relocate' && (d.includes("整併") || d.includes("撤站"))) show = true;
-                else if (type === 'shortage' && nf > 400) show = true;
-
-                if (show) map.addLayer(m);
-                else map.removeLayer(m);
-            });
-            
-            const searchKey = type === 'all' ? '' : type === 'expand' ? '擴張' : type === 'reduce' ? '縮減' : type === 'relocate' ? '整併' : '';
-            if(type !== 'shortage') dataTable.search(searchKey).draw();
+        window.zoomTo = function(lat, lng, name) {
+            map.flyTo([lat, lng], 16, { duration: 1.2 });
+            setTimeout(() => {
+                markers.forEach(m => {
+                    const mLat = m.getLatLng().lat;
+                    const mLng = m.getLatLng().lng;
+                    if (Math.abs(mLat - lat) < 0.0001 && Math.abs(mLng - lng) < 0.0001) {
+                        m.openPopup();
+                    }
+                });
+            }, 1200);
         }
 
-        window.focusMarker = function(lat, lng, name) {
-            map.flyTo([lat, lng], 16, { duration: 1.5 });
-            const marker = allMarkers.find(m => m.getLatLng().lat === lat && m.getLatLng().lng === lng);
-            if(marker) setTimeout(() => marker.openPopup(), 1500);
-        };
-
-        document.getElementById('csvInput').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const data = parseCSV(e.target.result);
-                    if(data.length > 0) renderSystem(data);
-                } catch(err) { alert("讀取錯誤: " + err); }
-            };
-            reader.readAsText(file);
-        });
-
-        // 預載 Demo 資料 (依據您真實數據範例)
+        // 載入預設資料 (包含新的觀察與平衡案例)
         function loadDemoData() {
-            const demo = [
-                { DMU: "捷運公館站(2號出口)", Latitude: 25.01491, Longitude: 121.53438, DEA_E_Score: 1, Slack_Docks: 0, NetFlow: -3085, 空間決策: "【維持現狀】", 資源建議: "配置合理" },
-                { DMU: "捷運六張犁站", Latitude: 25.02397, Longitude: 121.55266, DEA_E_Score: 0.616, Slack_Docks: 24.6, NetFlow: 1142, 空間決策: "【縮減規模】", 資源建議: "嚴重過剩" },
-                { DMU: "捷運麟光站(2號出口)", Latitude: 25.0181, Longitude: 121.55929, DEA_E_Score: 0.379, Slack_Docks: 31.1, NetFlow: -189, 空間決策: "【整併/撤站評估】", 資源建議: "嚴重過剩" },
-                { DMU: "捷運忠孝新生站(4號出口)", Latitude: 25.04239, Longitude: 121.53324, DEA_E_Score: 0.508, Slack_Docks: 22.6, NetFlow: 724, 空間決策: "【縮減規模】", 資源建議: "嚴重過剩" },
-                { DMU: "捷運信義安和站(4號出口)", Latitude: 25.03323, Longitude: 121.55248, DEA_E_Score: 0.524, Slack_Docks: 20.5, NetFlow: 868, 空間決策: "【縮減規模】", 資源建議: "嚴重過剩" }
-            ];
-            renderSystem(demo);
+            const raw = `DMU\tLatitude\tLongitude\tDEA_E_Score\tSlack_Docks\tSlack_Pop\tY1_Borrow\tY2_Return\tNetFlow\t效率等級\t資源分配與規模調整\t營運調度
+捷運公館站(2號出口)\t25.01491\t121.53438\t1\t0\t0\t49085\t52170\t-3085\t標竿站點（E≈1.0）\t【維持現狀】：資源配置合理\t【加強清運】：嚴重淨吸納
+捷運六張犁站\t25.02397\t121.55266\t0.616\t24.6\t3471.1\t21127\t19985\t1142\t中效率站點\t【縮減規模】：拆除部分車柱\t【頻繁補給】：嚴重淨輸出
+捷運麟光站(2號出口)\t25.0181\t121.55929\t0.3789\t31.1\t5615.2\t4380\t4569\t-189\t低效率站點\t【列入觀察】：效率待提升\t【流量平衡】：持續觀察
+捷運忠孝新生站(4號出口)\t25.04239\t121.53324\t0.508\t22.6\t7305.6\t13697\t12973\t724\t中效率站點\t【縮減規模】：拆除部分車柱\t【頻繁補給】：嚴重淨輸出`;
+            
+            // 嘗試自動解析
+            const data = parseCSV(raw);
+            allData = data;
+            renderView();
         }
     </script>
 </body>
 </html>
-
-
