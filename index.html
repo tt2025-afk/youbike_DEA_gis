@@ -56,8 +56,17 @@
         .mode-btn { opacity: 0.6; transition: all 0.2s; border: 1px solid transparent; }
         .mode-btn.active { opacity: 1; transform: scale(1.05); box-shadow: 0 2px 5px rgba(0,0,0,0.3); border-color: white; }
         
-        .sub-btn { background: white; color: #475569; border: 1px solid #cbd5e1; }
+        .sub-btn { background: white; color: #475569; border: 1px solid #cbd5e1; display: flex; align-items: center; }
+        .sub-btn:hover { background-color: #f1f5f9; }
         .sub-btn.active { background: #0f172a; color: white; border-color: #0f172a; }
+        .count-badge {
+            background-color: rgba(0,0,0,0.1); 
+            padding: 1px 6px; 
+            border-radius: 10px; 
+            font-size: 0.7rem; 
+            margin-left: 6px;
+        }
+        .sub-btn.active .count-badge { background-color: rgba(255,255,255,0.2); }
     </style>
 </head>
 <body>
@@ -76,6 +85,9 @@
         <div class="flex items-center space-x-4">
             <!-- 模式切換 -->
             <div class="flex bg-slate-800 rounded p-1 space-x-1">
+                <button onclick="setMode('efficiency')" id="btn-efficiency" class="mode-btn px-3 py-1.5 rounded bg-amber-500 text-white text-xs font-bold flex items-center">
+                    <i class="fas fa-chart-bar mr-2"></i> 效率分析
+                </button>
                 <button onclick="setMode('resource')" id="btn-resource" class="mode-btn active px-3 py-1.5 rounded bg-blue-600 text-white text-xs font-bold flex items-center">
                     <i class="fas fa-cubes mr-2"></i> 資源規模
                 </button>
@@ -103,37 +115,59 @@
             <!-- 浮動控制面板 -->
             <div class="absolute top-4 right-4 z-[400] flex flex-col items-end space-y-3 pointer-events-none">
                 
-                <!-- 資源規模子篩選 (僅在資源模式顯示) -->
-                <div id="resource-filters" class="bg-white/95 backdrop-blur shadow-xl rounded-lg p-2 pointer-events-auto border border-slate-200">
-                    <div class="text-[10px] font-bold text-slate-500 uppercase mb-1 px-1">規模關注點：</div>
+                <!-- 1. 效率分析子篩選 -->
+                <div id="efficiency-filters" class="bg-white/95 backdrop-blur shadow-xl rounded-lg p-2 pointer-events-auto border border-slate-200 hidden">
+                    <div class="text-[10px] font-bold text-slate-500 uppercase mb-1 px-1">效率等級篩選：</div>
                     <div class="flex space-x-1">
-                        <button onclick="setSubFilter('all_resource')" id="sub-all-resource" class="sub-btn active px-2 py-1 rounded text-xs font-bold flex items-center transition">
-                            全部
+                        <button onclick="setSubFilter('eff_all')" id="sub-eff-all" class="sub-btn active px-2 py-1 rounded text-xs font-bold transition">
+                            全部 <span id="count-eff-all" class="count-badge">0</span>
                         </button>
-                        <button onclick="setSubFilter('reduce')" id="sub-reduce" class="sub-btn px-2 py-1 rounded text-xs font-bold flex items-center transition hover:text-red-500">
-                            <i class="fas fa-compress-alt mr-1"></i> 縮減規模
+                        <button onclick="setSubFilter('eff_benchmark')" id="sub-eff-benchmark" class="sub-btn px-2 py-1 rounded text-xs font-bold transition hover:bg-yellow-50 hover:text-yellow-700">
+                            <span class="w-2 h-2 rounded-full bg-benchmark mr-1"></span> 標竿 <span id="count-eff-benchmark" class="count-badge">0</span>
                         </button>
-                        <button onclick="setSubFilter('observe')" id="sub-observe" class="sub-btn px-2 py-1 rounded text-xs font-bold flex items-center transition hover:text-yellow-600">
-                            <i class="fas fa-eye mr-1"></i> 列入觀察
+                        <button onclick="setSubFilter('eff_high')" id="sub-eff-high" class="sub-btn px-2 py-1 rounded text-xs font-bold transition hover:bg-green-50 hover:text-green-700">
+                            <span class="w-2 h-2 rounded-full bg-high mr-1"></span> 高效 <span id="count-eff-high" class="count-badge">0</span>
                         </button>
-                        <button onclick="setSubFilter('maintain')" id="sub-maintain" class="sub-btn px-2 py-1 rounded text-xs font-bold flex items-center transition hover:text-blue-500">
-                            <i class="fas fa-check mr-1"></i> 維持現狀
+                        <button onclick="setSubFilter('eff_mid')" id="sub-eff-mid" class="sub-btn px-2 py-1 rounded text-xs font-bold transition hover:bg-blue-50 hover:text-blue-700">
+                            <span class="w-2 h-2 rounded-full bg-mid mr-1"></span> 中效 <span id="count-eff-mid" class="count-badge">0</span>
+                        </button>
+                        <button onclick="setSubFilter('eff_low')" id="sub-eff-low" class="sub-btn px-2 py-1 rounded text-xs font-bold transition hover:bg-red-50 hover:text-red-700">
+                            <span class="w-2 h-2 rounded-full bg-low mr-1"></span> 低效 <span id="count-eff-low" class="count-badge">0</span>
                         </button>
                     </div>
                 </div>
 
-                <!-- 調度子篩選 (僅在調度模式顯示) -->
+                <!-- 2. 資源規模子篩選 -->
+                <div id="resource-filters" class="bg-white/95 backdrop-blur shadow-xl rounded-lg p-2 pointer-events-auto border border-slate-200">
+                    <div class="text-[10px] font-bold text-slate-500 uppercase mb-1 px-1">規模關注點：</div>
+                    <div class="flex space-x-1">
+                        <button onclick="setSubFilter('all_resource')" id="sub-all-resource" class="sub-btn active px-2 py-1 rounded text-xs font-bold transition">
+                            全部 <span id="count-all-resource" class="count-badge">0</span>
+                        </button>
+                        <button onclick="setSubFilter('reduce')" id="sub-reduce" class="sub-btn px-2 py-1 rounded text-xs font-bold transition text-red-600">
+                            <i class="fas fa-compress-alt mr-1"></i> 縮減 <span id="count-reduce" class="count-badge">0</span>
+                        </button>
+                        <button onclick="setSubFilter('observe')" id="sub-observe" class="sub-btn px-2 py-1 rounded text-xs font-bold transition text-yellow-600">
+                            <i class="fas fa-eye mr-1"></i> 觀察 <span id="count-observe" class="count-badge">0</span>
+                        </button>
+                        <button onclick="setSubFilter('maintain')" id="sub-maintain" class="sub-btn px-2 py-1 rounded text-xs font-bold transition text-blue-600">
+                            <i class="fas fa-check mr-1"></i> 維持 <span id="count-maintain" class="count-badge">0</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 3. 調度子篩選 -->
                 <div id="dispatch-filters" class="bg-white/95 backdrop-blur shadow-xl rounded-lg p-2 pointer-events-auto hidden border border-slate-200">
                     <div class="text-[10px] font-bold text-slate-500 uppercase mb-1 px-1">調度關注點：</div>
                     <div class="flex space-x-1">
-                        <button onclick="setSubFilter('supply')" id="sub-supply" class="sub-btn active px-2 py-1 rounded text-xs font-bold flex items-center transition">
-                            <i class="fas fa-arrow-up text-red-500 mr-1"></i> 頻繁補給
+                        <button onclick="setSubFilter('supply')" id="sub-supply" class="sub-btn active px-2 py-1 rounded text-xs font-bold transition text-red-600">
+                            <i class="fas fa-arrow-up mr-1"></i> 頻繁補給 <span id="count-supply" class="count-badge">0</span>
                         </button>
-                        <button onclick="setSubFilter('clear')" id="sub-clear" class="sub-btn px-2 py-1 rounded text-xs font-bold flex items-center transition">
-                            <i class="fas fa-arrow-down text-green-500 mr-1"></i> 加強清運
+                        <button onclick="setSubFilter('clear')" id="sub-clear" class="sub-btn px-2 py-1 rounded text-xs font-bold transition text-green-600">
+                            <i class="fas fa-arrow-down mr-1"></i> 加強清運 <span id="count-clear" class="count-badge">0</span>
                         </button>
-                        <button onclick="setSubFilter('balance')" id="sub-balance" class="sub-btn px-2 py-1 rounded text-xs font-bold flex items-center transition hover:text-blue-500">
-                            <i class="fas fa-balance-scale mr-1"></i> 流量平衡
+                        <button onclick="setSubFilter('balance')" id="sub-balance" class="sub-btn px-2 py-1 rounded text-xs font-bold transition text-blue-600">
+                            <i class="fas fa-balance-scale mr-1"></i> 流量平衡 <span id="count-balance" class="count-badge">0</span>
                         </button>
                     </div>
                 </div>
@@ -214,28 +248,39 @@
             currentMode = mode;
             
             // 按鈕樣式
+            document.getElementById('btn-efficiency').classList.toggle('active', mode === 'efficiency');
             document.getElementById('btn-resource').classList.toggle('active', mode === 'resource');
             document.getElementById('btn-dispatch').classList.toggle('active', mode === 'dispatch');
             
-            // 介面文字更新與子選單切換
+            // 面板控制
+            const effFilters = document.getElementById('efficiency-filters');
             const resourceFilters = document.getElementById('resource-filters');
             const dispatchFilters = document.getElementById('dispatch-filters');
+            
             const listTitle = document.getElementById('list-title');
             const sortDesc = document.getElementById('sort-desc');
             const colAction = document.getElementById('col-action');
 
-            if (mode === 'dispatch') {
-                resourceFilters.classList.add('hidden');
+            // 重置顯示
+            effFilters.classList.add('hidden');
+            resourceFilters.classList.add('hidden');
+            dispatchFilters.classList.add('hidden');
+
+            if (mode === 'efficiency') {
+                effFilters.classList.remove('hidden');
+                listTitle.innerText = '站點效率分析列表';
+                colAction.innerText = '效率等級說明';
+                setSubFilter('eff_all'); 
+            } else if (mode === 'dispatch') {
                 dispatchFilters.classList.remove('hidden');
                 listTitle.innerText = '營運調度建議列表';
                 colAction.innerText = '調度策略';
-                setSubFilter('supply'); // 切換到調度時預設顯示補給
+                setSubFilter('supply'); 
             } else {
-                dispatchFilters.classList.add('hidden');
                 resourceFilters.classList.remove('hidden');
                 listTitle.innerText = '資源分配與規模調整列表';
                 colAction.innerText = '規模建議';
-                setSubFilter('all_resource'); // 切換回資源時預設顯示全部
+                setSubFilter('all_resource'); 
             }
         }
 
@@ -247,7 +292,7 @@
                 btn.classList.remove('active');
             });
 
-            // 設定當前按鈕樣式
+            // 設定當前按鈕樣式 (ID 對應 map)
             const btnMap = {
                 'all_resource': 'sub-all-resource',
                 'reduce': 'sub-reduce',
@@ -255,7 +300,12 @@
                 'maintain': 'sub-maintain',
                 'supply': 'sub-supply',
                 'clear': 'sub-clear',
-                'balance': 'sub-balance' 
+                'balance': 'sub-balance',
+                'eff_all': 'sub-eff-all',
+                'eff_benchmark': 'sub-eff-benchmark',
+                'eff_high': 'sub-eff-high',
+                'eff_mid': 'sub-eff-mid',
+                'eff_low': 'sub-eff-low'
             };
             
             if(btnMap[filter]) {
@@ -264,8 +314,10 @@
 
             // 更新排序描述
             const sortDesc = document.getElementById('sort-desc');
-            if (currentMode === 'resource') {
-                 sortDesc.innerText = '排序：效率低 (紅) → 效率高 (黃)';
+            if (currentMode === 'efficiency') {
+                sortDesc.innerText = '排序：效率值 (高 → 低)';
+            } else if (currentMode === 'resource') {
+                 sortDesc.innerText = '排序：效率值 (低 → 高)';
             } else {
                 if (filter === 'supply') sortDesc.innerText = '排序：淨輸出 (缺車嚴重者優先)';
                 else if (filter === 'clear') sortDesc.innerText = '排序：淨吸納 (滿位嚴重者優先)';
@@ -275,21 +327,18 @@
             renderView();
         }
 
-        // --- 檔案處理 (自動偵測編碼) ---
+        // --- 檔案處理 ---
         function handleFileUpload(e) {
             const file = e.target.files[0];
             if (!file) return;
 
             const reader = new FileReader();
-            
-            // 嘗試先用 Big5 讀取 (Excel 預設)
             reader.readAsText(file, 'Big5'); 
             
             reader.onload = (e) => {
                 let text = e.target.result;
                 let data = parseCSV(text);
                 
-                // 檢查是否包含亂碼或解析失敗
                 if (data.length === 0 || !JSON.stringify(data[0]).includes('效率')) {
                      const readerUTF8 = new FileReader();
                      readerUTF8.readAsText(file, 'UTF-8');
@@ -298,6 +347,7 @@
                          const dataUTF8 = parseCSV(textUTF8);
                          if (dataUTF8.length > 0) {
                              allData = dataUTF8;
+                             updateCounts(); 
                              renderView();
                              const group = new L.featureGroup(markers);
                              if(markers.length > 0) map.fitBounds(group.getBounds().pad(0.1));
@@ -307,6 +357,7 @@
                      }
                 } else {
                     allData = data;
+                    updateCounts();
                     renderView();
                     const group = new L.featureGroup(markers);
                     if(markers.length > 0) map.fitBounds(group.getBounds().pad(0.1));
@@ -331,7 +382,42 @@
             }).filter(item => item !== null);
         }
 
-        // --- 核心渲染 ---
+        // --- 核心邏輯 ---
+        
+        function updateCounts() {
+            // 資源
+            const cntReduce = allData.filter(i => (i['資源分配與規模調整'] || "").includes('【縮減規模')).length;
+            const cntObserve = allData.filter(i => (i['資源分配與規模調整'] || "").includes('【列入觀察】')).length;
+            const cntMaintain = allData.filter(i => (i['資源分配與規模調整'] || "").includes('【維持現狀】')).length;
+            
+            document.getElementById('count-all-resource').innerText = allData.length;
+            document.getElementById('count-reduce').innerText = cntReduce;
+            document.getElementById('count-observe').innerText = cntObserve;
+            document.getElementById('count-maintain').innerText = cntMaintain;
+
+            // 調度
+            const cntSupply = allData.filter(i => (i['營運調度'] || "").includes('【頻繁補給')).length;
+            const cntClear = allData.filter(i => (i['營運調度'] || "").includes('【加強清運】')).length;
+            const cntBalance = allData.filter(i => (i['營運調度'] || "").includes('【流量平衡】')).length;
+
+            document.getElementById('count-supply').innerText = cntSupply;
+            document.getElementById('count-clear').innerText = cntClear;
+            document.getElementById('count-balance').innerText = cntBalance;
+
+            // 效率 (依據等級字串)
+            const cntEffAll = allData.length;
+            const cntEffBench = allData.filter(i => (i['效率等級'] || "").includes('標竿')).length;
+            const cntEffHigh = allData.filter(i => (i['效率等級'] || "").includes('高效')).length;
+            const cntEffMid = allData.filter(i => (i['效率等級'] || "").includes('中效')).length;
+            const cntEffLow = allData.filter(i => (i['效率等級'] || "").includes('低效')).length;
+
+            document.getElementById('count-eff-all').innerText = cntEffAll;
+            document.getElementById('count-eff-benchmark').innerText = cntEffBench;
+            document.getElementById('count-eff-high').innerText = cntEffHigh;
+            document.getElementById('count-eff-mid').innerText = cntEffMid;
+            document.getElementById('count-eff-low').innerText = cntEffLow;
+        }
+
         function renderView() {
             markers.forEach(m => map.removeLayer(m));
             markers = [];
@@ -344,22 +430,30 @@
             displayData = allData.filter(item => {
                 const resourceKey = Object.keys(item).find(k => k.includes('資源') || k.includes('規模'));
                 const dispatchKey = Object.keys(item).find(k => k.includes('調度') || k.includes('流量'));
+                const levelKey = Object.keys(item).find(k => k.includes('效率等級'));
                 
                 const resourceAdvice = item[resourceKey] || "";
                 const dispatchAdvice = item[dispatchKey] || "";
+                const level = item[levelKey] || "";
                 const nf = parseInt(item.NetFlow || item.NF || item['淨流量'] || 0);
 
                 if (currentMode === 'resource') {
                     if (currentSubFilter === 'all_resource') return true;
-                    if (currentSubFilter === 'reduce') return resourceAdvice.includes('【縮減規模】') || resourceAdvice.includes('【縮減規模／重新選址】');
+                    if (currentSubFilter === 'reduce') return resourceAdvice.includes('【縮減規模');
                     if (currentSubFilter === 'observe') return resourceAdvice.includes('【列入觀察】');
                     if (currentSubFilter === 'maintain') return resourceAdvice.includes('【維持現狀】');
-                } else {
-                    if (currentSubFilter === 'supply') return dispatchAdvice.includes('頻繁補給') || dispatchAdvice.includes('優先擴張');
-                    if (currentSubFilter === 'clear') return dispatchAdvice.includes('加強清運');
-                    if (currentSubFilter === 'balance') return dispatchAdvice.includes('流量平衡');
+                } else if (currentMode === 'dispatch') {
+                    if (currentSubFilter === 'supply') return dispatchAdvice.includes('【頻繁補給');
+                    if (currentSubFilter === 'clear') return dispatchAdvice.includes('【加強清運】');
+                    if (currentSubFilter === 'balance') return dispatchAdvice.includes('【流量平衡】');
+                } else if (currentMode === 'efficiency') {
+                    if (currentSubFilter === 'eff_all') return true;
+                    if (currentSubFilter === 'eff_benchmark') return level.includes('標竿');
+                    if (currentSubFilter === 'eff_high') return level.includes('高效');
+                    if (currentSubFilter === 'eff_mid') return level.includes('中效');
+                    if (currentSubFilter === 'eff_low') return level.includes('低效');
                 }
-                return true;
+                return false;
             });
 
             // 2. 排序
@@ -369,12 +463,14 @@
                 const nfA = parseInt(a.NetFlow || a['淨流量'] || 0);
                 const nfB = parseInt(b.NetFlow || b['淨流量'] || 0);
 
-                if (currentMode === 'resource') {
+                if (currentMode === 'efficiency') {
+                    return eB - eA; // 效率高優先
+                } else if (currentMode === 'resource') {
                     return eA - eB; // 效率低優先
                 } else {
                     if (currentSubFilter === 'supply') return nfB - nfA; // 淨輸出大優先
-                    else if (currentSubFilter === 'clear') return nfA - nfB; // 淨吸納大 (負值小) 優先
-                    else return Math.abs(nfA) - Math.abs(nfB); // 平衡優先 (接近0)
+                    else if (currentSubFilter === 'clear') return nfA - nfB; // 淨吸納大優先
+                    else return Math.abs(nfA) - Math.abs(nfB); // 接近0優先
                 }
             });
 
@@ -387,9 +483,7 @@
                 const name = item.DMU || item.DMU_Name || item['站點名稱'];
                 const e = parseFloat(item.DEA_E_Score || item.E || item['效率值'] || 0);
                 const netFlow = parseInt(item.NetFlow || item.NF || item['淨流量'] || 0);
-                // 讀取 Slack_Docks，若無則為 0
                 const slackDocks = parseFloat(item.Slack_Docks || item.Slack_X1 || item['車位過剩'] || 0);
-                
                 const levelKey = Object.keys(item).find(k => k.includes('效率等級'));
                 const level = item[levelKey] || "";
                 
@@ -397,34 +491,52 @@
                 if (currentMode === 'resource') {
                     const key = Object.keys(item).find(k => k.includes('資源') || k.includes('規模'));
                     actionText = item[key] || "-";
-                } else {
+                } else if (currentMode === 'dispatch') {
                     const key = Object.keys(item).find(k => k.includes('調度') || k.includes('流量'));
                     actionText = item[key] || "-";
+                } else {
+                    actionText = level;
                 }
 
                 if(isNaN(lat) || isNaN(lng)) return;
 
-                // 決定顏色
+                // 顏色與旗標 (Benchmark Flag)
                 let colorClass = 'bg-mid';
                 let colorHex = '#3b82f6';
-                if (level.includes('標竿') || e >= 0.999) { colorClass = 'bg-benchmark'; colorHex = '#facc15'; }
+                let isBenchmark = false;
+
+                if (level.includes('標竿') || e >= 0.999) { 
+                    colorClass = 'bg-benchmark'; 
+                    colorHex = '#facc15'; 
+                    isBenchmark = true; // 標記為標竿
+                }
                 else if (level.includes('高') || (e >= 0.8 && e < 0.999)) { colorClass = 'bg-high'; colorHex = '#22c55e'; }
                 else if (level.includes('中') || (e >= 0.5 && e < 0.8)) { colorClass = 'bg-mid'; colorHex = '#3b82f6'; }
                 else if (level.includes('低') || e < 0.5) { colorClass = 'bg-low'; colorHex = '#ef4444'; }
 
-                // 決定圖標
+                // 決定圖標 (核心修改邏輯)
                 let iconClass = 'fa-bicycle';
-                if (currentMode === 'dispatch') {
-                    if (netFlow > 0) iconClass = 'fa-arrow-up';
-                    else if (netFlow < 0) iconClass = 'fa-arrow-down';
-                    else iconClass = 'fa-check-circle';
+                
+                if (isBenchmark) {
+                    // ★ 標竿站點強制使用打勾圖示 ★
+                    iconClass = 'fa-check';
                 } else {
-                    if (actionText.includes('縮減')) iconClass = 'fa-compress-alt';
-                    else if (actionText.includes('維持')) iconClass = 'fa-check';
-                    else if (actionText.includes('觀察')) iconClass = 'fa-eye';
+                    // 非標竿站點才依據模式變換圖示
+                    if (currentMode === 'dispatch') {
+                        if (netFlow > 0) iconClass = 'fa-arrow-up';
+                        else if (netFlow < 0) iconClass = 'fa-arrow-down';
+                        else iconClass = 'fa-balance-scale';
+                    } else if (currentMode === 'efficiency') {
+                        iconClass = 'fa-chart-bar';
+                    } else {
+                        if (actionText.includes('縮減')) iconClass = 'fa-compress-alt';
+                        else if (actionText.includes('維持')) iconClass = 'fa-check'; // 這裡可能與標竿重疊，但標竿已在前一個if處理
+                        else if (actionText.includes('觀察')) iconClass = 'fa-eye';
+                    }
                 }
 
                 // Marker
+                // 標竿站點字體顏色用深色 (#333)，其他用白色 (#fff)
                 const iconHtml = `
                     <div style="background-color: ${colorHex}" class="marker-pin"></div>
                     <i class="fas ${iconClass} marker-icon" style="color: ${colorHex === '#facc15' ? '#333' : '#fff'}"></i>
@@ -440,12 +552,12 @@
                         <div class="space-y-1 text-sm">
                             <div class="flex justify-between"><span class="text-gray-500">效率值:</span> <b>${e.toFixed(3)}</b></div>
                             <div class="flex justify-between">
-                                <span class="text-gray-500">建議減少車輛:</span> 
+                                <span class="text-gray-500">建議減少:</span> 
                                 <span class="${slackDocks > 5 ? 'text-red-500 font-bold' : ''}">${slackDocks > 0 ? slackDocks.toFixed(1) + ' 輛' : '-'}</span>
                             </div>
                             <div class="flex justify-between"><span class="text-gray-500">淨流量:</span> <span class="${netFlow>0?'text-red-500':'text-green-500'} font-bold">${netFlow>0?'+'+netFlow:netFlow}</span></div>
                             <div class="mt-2 bg-slate-50 p-2 rounded text-xs border border-slate-100">
-                                <span class="font-bold text-slate-600 block mb-1">建議行動:</span>
+                                <span class="font-bold text-slate-600 block mb-1">資訊:</span>
                                 ${actionText}
                             </div>
                         </div>
@@ -498,7 +610,6 @@
             }, 1200);
         }
 
-        // 載入預設資料 (包含新的觀察與平衡案例)
         function loadDemoData() {
             const raw = `DMU\tLatitude\tLongitude\tDEA_E_Score\tSlack_Docks\tSlack_Pop\tY1_Borrow\tY2_Return\tNetFlow\t效率等級\t資源分配與規模調整\t營運調度
 捷運公館站(2號出口)\t25.01491\t121.53438\t1\t0\t0\t49085\t52170\t-3085\t標竿站點（E≈1.0）\t【維持現狀】：資源配置合理\t【加強清運】：嚴重淨吸納
@@ -506,9 +617,9 @@
 捷運麟光站(2號出口)\t25.0181\t121.55929\t0.3789\t31.1\t5615.2\t4380\t4569\t-189\t低效率站點\t【列入觀察】：效率待提升\t【流量平衡】：持續觀察
 捷運忠孝新生站(4號出口)\t25.04239\t121.53324\t0.508\t22.6\t7305.6\t13697\t12973\t724\t中效率站點\t【縮減規模】：拆除部分車柱\t【頻繁補給】：嚴重淨輸出`;
             
-            // 嘗試自動解析
             const data = parseCSV(raw);
             allData = data;
+            updateCounts();
             renderView();
         }
     </script>
